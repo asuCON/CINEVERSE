@@ -3,19 +3,33 @@ export interface Movie {
   tmdb_id?: number;
   title: string;
   original_title?: string;
-  overview: string;
-  poster_path: string;
-  backdrop_path: string;
-  release_date: string;
-  release_year: number;
-  vote_average: number;
-  vote_count: number;
-  popularity: number;
-  genres: string[];
+  overview?: string;
+  poster_path?: string;
+  backdrop_path?: string;
+  release_date?: string;
+  release_year?: number;
+  vote_average?: number;
+  vote_count?: number;
+  popularity?: number;
+  genres?: string[];
   director?: string;
   cast?: string[];
   keywords?: string[];
   trailer_youtube_key?: string;
+  runtime?: string;
+  tagline?: string;
+  theme?: string;
+
+  // Convenience fields for Figma / card compatibility
+  year?: number | string;
+  genre?: string;
+  duration?: string;
+  rating?: number;
+  quality?: string;
+  synopsis?: string;
+  posterUrl?: string;
+  match_percentage?: number;
+  badgeText?: string;
 }
 
 export interface RecommendationItem {

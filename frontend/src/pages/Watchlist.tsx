@@ -1,179 +1,240 @@
-import React, { useState } from 'react';
-import { Bookmark, CheckCircle2, Circle, Trash2, Star, Film } from 'lucide-react';
-import { useWatchlist } from '../context/WatchlistContext';
-import { StarRating } from '../components/StarRating';
+import React, { useState, useEffect } from 'react';
+import { Play, ChevronDown, CheckCircle2, Circle, Trash2 } from 'lucide-react';
+import { CineArt } from '../components/CineArt';
+import { Movie, WatchlistItem } from '../types/movie';
+import { api } from '../services/api';
+import { PICKED_FOR_YOU_MOVIES, FigmaMovie } from '../data/figmaCatalog';
 
-export const Watchlist: React.FC<{ onNavigateHome: () => void }> = ({ onNavigateHome }) => {
-  const { watchlist, toggleWatchlist, toggleWatched, openMovieModal, ratings, rateMovie } = useWatchlist();
-  const [filter, setFilter] = useState<'all' | 'unwatched' | 'watched'>('all');
+interface WatchlistProps {
+  onSelectMovie: (movie: Movie | FigmaMovie) => void;
+}
 
-  const filteredItems = watchlist.filter((item) => {
-    if (filter === 'unwatched') return !item.is_watched;
-    if (filter === 'watched') return item.is_watched;
+export const Watchlist: React.FC<WatchlistProps> = ({ onSelectMovie }) => {
+  const [watchlistItems, setWatchlistItems] = useState<WatchlistItem[]>([]);
+  const [activeFilter, setActiveFilter] = useState<'all' | 'wantToWatch' | 'watched'>('all');
+
+  const loadWatchlist = async () => {
+    try {
+      const res = await api.getWatchlist();
+      setWatchlistItems(res || []);
+    } catch (err) {
+      console.error('Error loading watchlist:', err);
+    }
+  };
+
+  useEffect(() => {
+    loadWatchlist();
+  }, []);
+
+  const handleToggleWatched = async (movieId: number) => {
+    try {
+      await api.toggleWatched(movieId);
+      setWatchlistItems((prev) =>
+        prev.map((item) =>
+          item.movie_id === movieId ? { ...item, is_watched: !item.is_watched } : item
+        )
+      );
+    } catch (err) {
+      console.error('Failed to toggle watched:', err);
+    }
+  };
+
+  const handleRemove = async (movieId: number) => {
+    try {
+      await api.removeFromWatchlist(movieId);
+      setWatchlistItems((prev) => prev.filter((item) => item.movie_id !== movieId));
+    } catch (err) {
+      console.error('Failed to remove from watchlist:', err);
+    }
+  };
+
+  const filteredItems = watchlistItems.filter((item) => {
+    if (activeFilter === 'wantToWatch') return !item.is_watched;
+    if (activeFilter === 'watched') return item.is_watched;
     return true;
   });
 
+  // If user hasn't added anything to database yet, show the curated collection items so UI is populated
+  const displayItems =
+    watchlistItems.length > 0
+      ? filteredItems
+      : PICKED_FOR_YOU_MOVIES.map((m, idx) => ({
+          id: idx + 1,
+          movie_id: Number(idx + 1),
+          is_watched: idx % 2 === 1,
+          created_at: new Date().toISOString(),
+          movie: {
+            id: Number(idx + 1),
+            title: m.title,
+            genres: [m.genre],
+            release_year: Number(m.year) || 2025,
+            vote_average: m.rating,
+            vote_count: 1000,
+            popularity: 80,
+            overview: m.tagline,
+            poster_path: '',
+            backdrop_path: '',
+            release_date: '2025-01-01',
+            theme: m.theme
+          } as Movie
+        }));
+
   return (
-    <div className="min-h-screen bg-[#0B0B0B] text-white pt-24 px-4 md:px-12 pb-24">
-      <div className="max-w-7xl mx-auto space-y-8">
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-neutral-800">
-          <div>
-            <h1 className="text-3xl sm:text-4xl font-black uppercase tracking-tight flex items-center space-x-3">
-              <Bookmark className="w-8 h-8 text-cineverse-red" />
-              <span>My Watchlist</span>
-            </h1>
-            <p className="text-neutral-400 text-sm mt-1">
-              Keep track of movies you want to see. Your watchlist helps refine your ML recommendations.
-            </p>
+    <div className="min-h-screen bg-[#07080B] text-[#F5F2F0] pt-12 pb-24 px-6 md:px-12">
+      <div className="max-w-7xl mx-auto space-y-10">
+        {/* Main Heading */}
+        <div className="space-y-2">
+          <h1 className="text-3xl sm:text-4xl font-bold text-[#F5F2F0] tracking-tight">
+            Your watchlist.
+          </h1>
+          <p className="text-sm text-[#94969F]">
+            Save the stories you want to come back to.
+          </p>
+        </div>
+
+        {/* Filters and Sort Row matching 05 - Watchlist.png */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          {/* Filter Pills */}
+          <div className="flex items-center space-x-2.5">
+            <button
+              onClick={() => setActiveFilter('all')}
+              className={`px-4 py-1.5 rounded-full text-xs font-semibold transition-all ${
+                activeFilter === 'all'
+                  ? 'bg-[#E60914] text-[#F5F2F0]'
+                  : 'bg-[#17181E] text-[#94969F] hover:text-[#F5F2F0] border border-[#232630]'
+              }`}
+            >
+              All saved ({watchlistItems.length || PICKED_FOR_YOU_MOVIES.length})
+            </button>
+            <button
+              onClick={() => setActiveFilter('wantToWatch')}
+              className={`px-4 py-1.5 rounded-full text-xs font-semibold transition-all ${
+                activeFilter === 'wantToWatch'
+                  ? 'bg-[#E60914] text-[#F5F2F0]'
+                  : 'bg-[#17181E] text-[#94969F] hover:text-[#F5F2F0] border border-[#232630]'
+              }`}
+            >
+              Want to watch
+            </button>
+            <button
+              onClick={() => setActiveFilter('watched')}
+              className={`px-4 py-1.5 rounded-full text-xs font-semibold transition-all ${
+                activeFilter === 'watched'
+                  ? 'bg-[#E60914] text-[#F5F2F0]'
+                  : 'bg-[#17181E] text-[#94969F] hover:text-[#F5F2F0] border border-[#232630]'
+              }`}
+            >
+              Watched
+            </button>
           </div>
 
-          {/* Filter Pills */}
-          <div className="flex items-center space-x-2 bg-neutral-900 p-1 rounded-lg border border-neutral-800 text-xs">
-            <button
-              onClick={() => setFilter('all')}
-              className={`px-3 py-1.5 rounded-md font-semibold transition-all ${
-                filter === 'all' ? 'bg-cineverse-red text-white' : 'text-neutral-400 hover:text-white'
-              }`}
-            >
-              All ({watchlist.length})
-            </button>
-            <button
-              onClick={() => setFilter('unwatched')}
-              className={`px-3 py-1.5 rounded-md font-semibold transition-all ${
-                filter === 'unwatched' ? 'bg-cineverse-red text-white' : 'text-neutral-400 hover:text-white'
-              }`}
-            >
-              Want to Watch ({watchlist.filter(i => !i.is_watched).length})
-            </button>
-            <button
-              onClick={() => setFilter('watched')}
-              className={`px-3 py-1.5 rounded-md font-semibold transition-all ${
-                filter === 'watched' ? 'bg-cineverse-red text-white' : 'text-neutral-400 hover:text-white'
-              }`}
-            >
-              Watched ({watchlist.filter(i => i.is_watched).length})
+          {/* Sort dropdown */}
+          <div className="flex items-center space-x-2 text-xs">
+            <span className="text-[10px] uppercase font-bold tracking-wider text-[#94969F]">
+              SORT BY
+            </span>
+            <button className="flex items-center space-x-1.5 text-[#F5F2F0] font-medium hover:text-[#E60914] transition-colors">
+              <span>Recently added</span>
+              <ChevronDown className="w-3.5 h-3.5" />
             </button>
           </div>
         </div>
 
-        {/* Watchlist Grid */}
-        {filteredItems.length === 0 ? (
-          <div className="text-center py-24 space-y-4">
-            <div className="w-16 h-16 rounded-full bg-neutral-900 border border-neutral-800 flex items-center justify-center mx-auto text-neutral-500">
-              <Film className="w-8 h-8" />
-            </div>
-            <h3 className="text-lg font-bold text-neutral-300">
-              {filter === 'all'
-                ? 'Your watchlist is empty'
-                : `No movies marked as ${filter}`}
-            </h3>
-            <p className="text-sm text-neutral-500 max-w-md mx-auto">
-              Explore films on Discover and click the "+" button to save movies you want to see.
-            </p>
-            <button
-              onClick={onNavigateHome}
-              className="px-6 py-2.5 rounded-md bg-cineverse-red hover:bg-cineverse-crimson text-white font-bold text-sm shadow-glow-red transition-all"
-            >
-              Browse Discover
-            </button>
+        {/* Saved for later Section */}
+        <div className="space-y-6">
+          <div>
+            <h3 className="text-xl font-bold text-[#F5F2F0]">Saved for later</h3>
+            <p className="text-xs text-[#94969F]">{displayItems.length} films in your collection</p>
           </div>
-        ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {filteredItems.map((item) => {
+
+          {/* 3-Column Split Card Grid matching 05 - Watchlist.png */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {displayItems.map((item) => {
               const movie = item.movie;
-              const userRating = ratings[movie.id] || 0;
+              const poster = movie.backdrop_path || movie.poster_path;
+              const genre = movie.genres?.slice(0, 2).join(' / ') || 'Cinema';
 
               return (
                 <div
                   key={item.id}
-                  className="flex gap-4 p-4 rounded-xl bg-cineverse-card border border-neutral-800/80 hover:border-neutral-700 transition-all group"
+                  className="flex items-start gap-4 bg-[#101116] p-3.5 rounded-card border border-[#17181E] hover:border-[#2C2F3C] transition-all group"
                 >
-                  {/* Poster Thumbnail */}
+                  {/* Left Thumbnail Graphic Artwork */}
                   <div
-                    onClick={() => openMovieModal(movie)}
-                    className="relative w-24 aspect-[2/3] rounded-lg overflow-hidden flex-none cursor-pointer bg-neutral-900"
+                    onClick={() => onSelectMovie(movie)}
+                    className="w-36 aspect-[16/10] rounded-card overflow-hidden flex-none cursor-pointer border border-[#17181E] group-hover:border-[#2C2E38] transition-colors"
                   >
-                    <img
-                      src={movie.poster_path}
-                      alt={movie.title}
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                    <CineArt
+                      theme={movie.theme || 'crimson'}
+                      posterUrl={poster}
+                      altText={movie.title}
                     />
                   </div>
 
-                  {/* Info & Actions */}
-                  <div className="flex flex-col justify-between flex-1 min-w-0">
-                    <div>
-                      <div className="flex items-start justify-between gap-2">
-                        <h4
-                          onClick={() => openMovieModal(movie)}
-                          className="font-bold text-white text-base truncate cursor-pointer hover:text-cineverse-red transition-colors"
-                        >
-                          {movie.title}
-                        </h4>
+                  {/* Right Metadata & Action */}
+                  <div className="flex-1 min-w-0 space-y-1">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] uppercase font-bold tracking-wider text-[#94969F]">
+                        Cineverse Original
+                      </span>
+                      {watchlistItems.length > 0 && (
                         <button
-                          onClick={() => toggleWatchlist(movie)}
-                          className="text-neutral-500 hover:text-rose-500 p-1 transition-colors"
+                          onClick={() => handleRemove(movie.id)}
+                          className="text-[#94969F] hover:text-[#E60914] transition-colors p-0.5"
                           title="Remove from Watchlist"
                         >
-                          <Trash2 className="w-4 h-4" />
+                          <Trash2 className="w-3.5 h-3.5" />
                         </button>
-                      </div>
+                      )}
+                    </div>
 
-                      <div className="flex items-center space-x-2 text-xs text-neutral-400 mt-1">
-                        <span>{movie.release_year}</span>
-                        <span>•</span>
-                        <span className="flex items-center space-x-1 text-amber-400">
-                          <Star className="w-3 h-3 fill-amber-400" />
-                          <span>{movie.vote_average.toFixed(1)}</span>
-                        </span>
-                      </div>
+                    <h4
+                      onClick={() => onSelectMovie(movie)}
+                      className="font-bold text-sm uppercase tracking-wide text-[#F5F2F0] truncate cursor-pointer hover:text-[#E60914] transition-colors"
+                    >
+                      {movie.title}
+                    </h4>
 
-                      <div className="text-xs text-neutral-400 mt-1 line-clamp-1">
-                        {movie.genres?.join(', ')}
-                      </div>
+                    <div className="text-xs text-[#94969F]">
+                      {genre} • {movie.release_year}
+                    </div>
+
+                    <div className="text-xs text-[#94969F] pt-0.5">
+                      Recommended for your taste
                     </div>
 
                     {/* Bottom Controls */}
-                    <div className="space-y-2 pt-2 border-t border-neutral-800/60">
-                      {/* Watched Toggle */}
+                    <div className="pt-2 flex items-center justify-between">
                       <button
-                        onClick={() => toggleWatched(movie.id)}
-                        className={`flex items-center space-x-1.5 text-xs font-semibold px-2.5 py-1 rounded transition-colors ${
-                          item.is_watched
-                            ? 'bg-emerald-950/80 text-emerald-400 border border-emerald-500/30'
-                            : 'bg-neutral-900 text-neutral-400 hover:text-neutral-200 border border-neutral-800'
-                        }`}
+                        onClick={() => onSelectMovie(movie)}
+                        className="flex items-center space-x-1.5 bg-[#17181E] hover:bg-[#232630] text-[#F5F2F0] rounded-full px-3 py-1 text-xs font-semibold transition-all border border-[#232630]"
                       >
-                        {item.is_watched ? (
-                          <>
-                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-                            <span>Watched</span>
-                          </>
-                        ) : (
-                          <>
-                            <Circle className="w-3.5 h-3.5" />
-                            <span>Mark as Watched</span>
-                          </>
-                        )}
+                        <Play className="w-3 h-3 fill-current" />
+                        <span>View details</span>
                       </button>
 
-                      {/* Interactive Rating */}
-                      <div className="flex items-center justify-between">
-                        <span className="text-[11px] text-neutral-500 font-medium">Rating:</span>
-                        <StarRating
-                          size="sm"
-                          initialRating={userRating}
-                          onRate={(val) => rateMovie(movie.id, val)}
-                        />
-                      </div>
+                      {watchlistItems.length > 0 && (
+                        <button
+                          onClick={() => handleToggleWatched(movie.id)}
+                          className={`flex items-center space-x-1 text-[11px] font-medium transition-colors ${
+                            item.is_watched ? 'text-emerald-400' : 'text-[#94969F] hover:text-[#F5F2F0]'
+                          }`}
+                        >
+                          {item.is_watched ? (
+                            <CheckCircle2 className="w-3.5 h-3.5" />
+                          ) : (
+                            <Circle className="w-3.5 h-3.5" />
+                          )}
+                          <span>{item.is_watched ? 'Watched' : 'Mark watched'}</span>
+                        </button>
+                      )}
                     </div>
                   </div>
                 </div>
               );
             })}
           </div>
-        )}
+        </div>
       </div>
     </div>
   );

@@ -1,52 +1,52 @@
 import React, { useState, useEffect } from 'react';
-import { Search, X, SlidersHorizontal, Star } from 'lucide-react';
+import { Search, Loader2 } from 'lucide-react';
+import { MovieCard } from '../components/MovieCard';
 import { Movie } from '../types/movie';
 import { api } from '../services/api';
-import { MovieCard } from '../components/MovieCard';
+import { FigmaMovie } from '../data/figmaCatalog';
 
-export const SearchPage: React.FC = () => {
-  const [searchTerm, setSearchTerm] = useState('');
-  const [genres, setGenres] = useState<string[]>([]);
-  const [selectedGenre, setSelectedGenre] = useState<string>('');
-  const [minRating, setMinRating] = useState<number | undefined>(undefined);
-  const [selectedDecade, setSelectedDecade] = useState<string>('');
+interface SearchPageProps {
+  onSelectMovie: (movie: Movie | FigmaMovie) => void;
+  searchQuery: string;
+  setSearchQuery: (query: string) => void;
+}
+
+export const SearchPage: React.FC<SearchPageProps> = ({
+  onSelectMovie,
+  searchQuery,
+  setSearchQuery
+}) => {
+  const [selectedGenre, setSelectedGenre] = useState('All');
+  const [activePopularTag, setActivePopularTag] = useState<string>('thriller');
   const [movies, setMovies] = useState<Movie[]>([]);
   const [loading, setLoading] = useState(false);
+  const [totalCount, setTotalCount] = useState<number>(0);
 
-  // Load available genres
-  useEffect(() => {
-    api.getGenres()
-      .then(setGenres)
-      .catch((err) => console.error('Failed to load genres:', err));
-  }, []);
+  const genres = ['All', 'Action', 'Drama', 'Science Fiction', 'Thriller', 'Comedy', 'Animation', 'Adventure'];
+  const popularSearches = ['Space & time', 'Slow-burn thrillers', 'Feel-good', 'Plot twists'];
 
-  // Fetch search & filter results
   useEffect(() => {
     let isCurrent = true;
     setLoading(true);
 
-    const debounceTimer = setTimeout(() => {
+    const debounce = setTimeout(() => {
+      const searchParam = searchQuery.trim() || (activePopularTag ? activePopularTag.split(' ')[0] : undefined);
+      const genreParam = selectedGenre !== 'All' ? selectedGenre : undefined;
+
       api.getMovies({
-        search: searchTerm.trim() || undefined,
-        genre: selectedGenre || undefined,
-        min_rating: minRating,
-        limit: 60
+        search: searchParam,
+        genre: genreParam,
+        limit: 30
       })
         .then((res) => {
           if (!isCurrent) return;
-          let items = res.items;
-
-          // Decade filtering
-          if (selectedDecade) {
-            if (selectedDecade === '2020s') items = items.filter(m => m.release_year >= 2020);
-            else if (selectedDecade === '2010s') items = items.filter(m => m.release_year >= 2010 && m.release_year < 2020);
-            else if (selectedDecade === '2000s') items = items.filter(m => m.release_year >= 2000 && m.release_year < 2010);
-            else if (selectedDecade === 'classics') items = items.filter(m => m.release_year < 2000);
-          }
-
-          setMovies(items);
+          setMovies(res.items || []);
+          setTotalCount(res.total || res.items?.length || 0);
         })
-        .catch((err) => console.error('Search error:', err))
+        .catch((err) => {
+          console.error('Search error:', err);
+          if (isCurrent) setMovies([]);
+        })
         .finally(() => {
           if (isCurrent) setLoading(false);
         });
@@ -54,183 +54,135 @@ export const SearchPage: React.FC = () => {
 
     return () => {
       isCurrent = false;
-      clearTimeout(debounceTimer);
+      clearTimeout(debounce);
     };
-  }, [searchTerm, selectedGenre, minRating, selectedDecade]);
+  }, [searchQuery, selectedGenre, activePopularTag]);
 
-  const clearAllFilters = () => {
-    setSearchTerm('');
-    setSelectedGenre('');
-    setMinRating(undefined);
-    setSelectedDecade('');
-  };
-
-  const hasActiveFilters = Boolean(searchTerm || selectedGenre || minRating || selectedDecade);
+  const displayQuery = searchQuery.trim() || activePopularTag || selectedGenre;
 
   return (
-    <div className="min-h-screen bg-[#0B0B0B] text-white pt-24 px-4 md:px-12 pb-24">
-      <div className="max-w-7xl mx-auto space-y-8">
-        {/* Search Bar Input */}
-        <div className="relative max-w-3xl mx-auto">
-          <div className="relative flex items-center">
-            <Search className="absolute left-4 w-6 h-6 text-neutral-400 pointer-events-none" />
+    <div className="min-h-screen bg-[#07080B] text-[#F5F2F0] pt-12 pb-24 px-6 md:px-12">
+      <div className="max-w-7xl mx-auto space-y-10">
+        {/* Main Heading */}
+        <div className="space-y-2">
+          <h1 className="text-3xl sm:text-4xl font-bold text-[#F5F2F0] tracking-tight">
+            Find your next favorite.
+          </h1>
+          <p className="text-sm text-[#94969F]">
+            Search by title, mood, genre, or the feeling you're chasing.
+          </p>
+        </div>
+
+        {/* Large Figma Search Bar Input */}
+        <div className="relative max-w-4xl">
+          <div className="relative flex items-center bg-[#17181E] border border-[#232630] rounded-full p-2 pl-5 focus-within:border-[#E60914] transition-colors">
+            <Search className="w-5 h-5 text-[#94969F] mr-3 flex-none" />
             <input
               type="text"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Search by title, director, keyword, or actor..."
-              className="w-full pl-13 pr-12 py-4 bg-cineverse-card/90 border border-neutral-700 focus:border-cineverse-red rounded-2xl text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-cineverse-red/30 text-base md:text-lg shadow-xl backdrop-blur-md transition-all"
+              value={searchQuery}
+              onChange={(e) => {
+                setSearchQuery(e.target.value);
+                if (activePopularTag) setActivePopularTag('');
+              }}
+              placeholder='Try “mind-bending sci-fi” or a movie you love…'
+              className="bg-transparent text-sm sm:text-base text-[#F5F2F0] placeholder-[#94969F] w-full focus:outline-none"
             />
-            {searchTerm && (
-              <button
-                onClick={() => setSearchTerm('')}
-                className="absolute right-4 p-1.5 rounded-full hover:bg-neutral-800 text-neutral-400 hover:text-white transition-colors"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            )}
-          </div>
-        </div>
-
-        {/* Filter Controls Panel */}
-        <div className="p-5 rounded-2xl bg-cineverse-card/50 border border-neutral-800/80 space-y-4">
-          <div className="flex items-center justify-between pb-3 border-b border-neutral-800/60">
-            <div className="flex items-center space-x-2 text-sm font-semibold text-neutral-300">
-              <SlidersHorizontal className="w-4 h-4 text-cineverse-red" />
-              <span>Filters</span>
-            </div>
-            {hasActiveFilters && (
-              <button
-                onClick={clearAllFilters}
-                className="text-xs text-cineverse-red hover:underline font-medium"
-              >
-                Reset All Filters
-              </button>
-            )}
-          </div>
-
-          {/* Genre Pills */}
-          <div className="space-y-2">
-            <span className="text-xs uppercase font-bold tracking-wider text-neutral-400 block">
-              Genres
-            </span>
-            <div className="flex flex-wrap gap-2">
-              <button
-                onClick={() => setSelectedGenre('')}
-                className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-all ${
-                  selectedGenre === ''
-                    ? 'bg-cineverse-red text-white shadow-glow-red'
-                    : 'bg-neutral-900 text-neutral-400 hover:text-white border border-neutral-800'
-                }`}
-              >
-                All Genres
-              </button>
-              {genres.map((g) => (
-                <button
-                  key={g}
-                  onClick={() => setSelectedGenre(selectedGenre === g ? '' : g)}
-                  className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-all ${
-                    selectedGenre === g
-                      ? 'bg-cineverse-red text-white shadow-glow-red'
-                      : 'bg-neutral-900 text-neutral-400 hover:text-white border border-neutral-800'
-                  }`}
-                >
-                  {g}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Rating & Era Row */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
-            {/* Minimum Rating */}
-            <div className="space-y-2">
-              <span className="text-xs uppercase font-bold tracking-wider text-neutral-400 block">
-                Minimum Rating
-              </span>
-              <div className="flex flex-wrap gap-2 text-xs">
-                {[
-                  { label: 'Any', value: undefined },
-                  { label: '7.5+ ★', value: 7.5 },
-                  { label: '8.0+ ★', value: 8.0 },
-                  { label: '8.3+ ★', value: 8.3 },
-                ].map((item) => (
-                  <button
-                    key={item.label}
-                    onClick={() => setMinRating(item.value)}
-                    className={`px-3 py-1.5 rounded-md font-semibold transition-all ${
-                      minRating === item.value
-                        ? 'bg-amber-500 text-black font-bold'
-                        : 'bg-neutral-900 text-neutral-400 hover:text-white border border-neutral-800'
-                    }`}
-                  >
-                    {item.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Decade / Era */}
-            <div className="space-y-2">
-              <span className="text-xs uppercase font-bold tracking-wider text-neutral-400 block">
-                Release Era
-              </span>
-              <div className="flex flex-wrap gap-2 text-xs">
-                {[
-                  { label: 'All Time', value: '' },
-                  { label: '2020s', value: '2020s' },
-                  { label: '2010s', value: '2010s' },
-                  { label: '2000s', value: '2000s' },
-                  { label: 'Classics', value: 'classics' },
-                ].map((item) => (
-                  <button
-                    key={item.label}
-                    onClick={() => setSelectedDecade(item.value)}
-                    className={`px-3 py-1.5 rounded-md font-semibold transition-all ${
-                      selectedDecade === item.value
-                        ? 'bg-cineverse-red text-white'
-                        : 'bg-neutral-900 text-neutral-400 hover:text-white border border-neutral-800'
-                    }`}
-                  >
-                    {item.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Results Header */}
-        <div className="flex items-center justify-between text-sm text-neutral-400">
-          <span>
-            Showing <strong className="text-white">{movies.length}</strong> title{movies.length !== 1 ? 's' : ''}
-          </span>
-        </div>
-
-        {/* Results Grid */}
-        {loading ? (
-          <div className="text-center py-20 text-neutral-500">
-            <div className="w-8 h-8 border-2 border-cineverse-red border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-            Filtering movies...
-          </div>
-        ) : movies.length === 0 ? (
-          <div className="text-center py-24 space-y-3">
-            <p className="text-lg font-semibold text-neutral-300">No movies match your search</p>
-            <p className="text-sm text-neutral-500">Try tweaking your search keywords or resetting your filters.</p>
             <button
-              onClick={clearAllFilters}
-              className="px-4 py-2 rounded-md bg-neutral-800 hover:bg-neutral-700 text-white text-xs font-semibold transition-colors"
+              type="button"
+              className="bg-[#E60914] hover:bg-[#ff1f2d] text-[#F5F2F0] font-semibold text-xs sm:text-sm px-6 py-2.5 rounded-full transition-all flex-none flex items-center space-x-1.5"
             >
-              Clear Filters
+              {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <span>Search</span>}
             </button>
           </div>
-        ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
-            {movies.map((m) => (
-              <MovieCard key={m.id} movie={m} />
+        </div>
+
+        {/* BROWSE BY GENRE */}
+        <div className="space-y-3">
+          <div className="text-[11px] uppercase font-bold tracking-wider text-[#94969F]">
+            BROWSE BY GENRE
+          </div>
+          <div className="flex flex-wrap gap-2.5">
+            {genres.map((g) => (
+              <button
+                key={g}
+                onClick={() => {
+                  setSelectedGenre(g);
+                  if (searchQuery) setSearchQuery('');
+                }}
+                className={`px-4 py-1.5 rounded-full text-xs font-semibold transition-all ${
+                  selectedGenre === g
+                    ? 'bg-[#E60914] text-[#F5F2F0]'
+                    : 'bg-[#17181E] text-[#94969F] hover:text-[#F5F2F0] border border-[#232630]'
+                }`}
+              >
+                {g}
+              </button>
             ))}
           </div>
-        )}
+        </div>
+
+        {/* Popular Searches */}
+        <div className="space-y-3">
+          <div>
+            <h3 className="text-lg font-bold text-[#F5F2F0]">Popular searches</h3>
+            <p className="text-xs text-[#94969F]">A little inspiration to get you started</p>
+          </div>
+
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+            {popularSearches.map((item) => (
+              <div
+                key={item}
+                onClick={() => {
+                  setActivePopularTag(item);
+                  setSearchQuery(item);
+                }}
+                className={`p-4 rounded-card border transition-all cursor-pointer font-medium text-xs sm:text-sm ${
+                  activePopularTag === item
+                    ? 'bg-[#17181E] border-[#E60914] text-[#F5F2F0]'
+                    : 'bg-[#17181E] border-[#232630] text-[#F5F2F0] hover:border-[#333845]'
+                }`}
+              >
+                {item}
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Results Section matching Figma */}
+        <div className="space-y-4 pt-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-lg font-bold text-[#F5F2F0]">
+                Results for "{displayQuery}"
+              </h3>
+              <p className="text-xs text-[#94969F]">
+                {loading ? 'Searching TMDB catalog...' : `${totalCount || movies.length} titles • Sorted by relevance`}
+              </p>
+            </div>
+          </div>
+
+          {loading ? (
+            <div className="text-center py-16 text-[#94969F] flex flex-col items-center justify-center space-y-3">
+              <Loader2 className="w-8 h-8 animate-spin text-[#E60914]" />
+              <span className="text-xs">Finding matches in TMDB catalog...</span>
+            </div>
+          ) : movies.length === 0 ? (
+            <div className="text-center py-16 space-y-3 bg-[#101116] rounded-2xl border border-[#17181E] p-8">
+              <p className="text-base font-semibold text-[#F5F2F0]">No titles found</p>
+              <p className="text-xs text-[#94969F]">Try searching for directors like "Christopher Nolan", or titles like "Interstellar", "Dune", "Batman".</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
+              {movies.map((movie) => (
+                <MovieCard
+                  key={movie.id}
+                  item={movie}
+                  onClick={() => onSelectMovie(movie)}
+                />
+              ))}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

@@ -1,99 +1,99 @@
-import React, { useState, useEffect } from 'react';
-import { Film, Sparkles, Bookmark, Search } from 'lucide-react';
-import { useWatchlist } from '../context/WatchlistContext';
+import React from 'react';
+import { Search } from 'lucide-react';
+
+export type NavTab = 'home' | 'discover' | 'foryou' | 'watchlist' | 'details';
 
 interface NavbarProps {
-  activeTab: 'home' | 'foryou' | 'watchlist' | 'search';
-  setActiveTab: (tab: 'home' | 'foryou' | 'watchlist' | 'search') => void;
+  activeTab: NavTab;
+  setActiveTab: (tab: NavTab) => void;
+  searchQuery: string;
+  setSearchQuery: (query: string) => void;
 }
 
-export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab }) => {
-  const [isScrolled, setIsScrolled] = useState(false);
-  const { watchlist } = useWatchlist();
-
-  useEffect(() => {
-    const handleScroll = () => {
-      setIsScrolled(window.scrollY > 40);
-    };
-    window.addEventListener('scroll', handleScroll);
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, []);
-
+export const Navbar: React.FC<NavbarProps> = ({
+  activeTab,
+  setActiveTab,
+  searchQuery,
+  setSearchQuery
+}) => {
   return (
-    <header
-      className={`fixed top-0 left-0 right-0 z-40 transition-all duration-300 px-4 md:px-12 py-4 ${
-        isScrolled
-          ? 'bg-[#0B0B0B]/95 backdrop-blur-md border-b border-neutral-800/60 shadow-xl'
-          : 'bg-gradient-to-b from-black/80 via-black/40 to-transparent'
-      }`}
-    >
+    <header className="sticky top-0 left-0 right-0 z-50 bg-[#07080B]/95 backdrop-blur-md px-6 md:px-12 py-3.5 border-b border-[#17181E]/80">
       <div className="max-w-7xl mx-auto flex items-center justify-between">
-        {/* Brand */}
-        <div className="flex items-center space-x-8">
+        {/* Brand Logo */}
+        <div className="flex items-center space-x-10">
           <button
             onClick={() => setActiveTab('home')}
-            className="flex items-center space-x-2 group focus:outline-none"
+            className="flex items-center group focus:outline-none"
           >
-            <div className="w-9 h-9 rounded-lg bg-cineverse-red flex items-center justify-center shadow-glow-red group-hover:scale-105 transition-transform">
-              <Film className="w-5 h-5 text-white" />
-            </div>
-            <span className="text-2xl font-black tracking-widest text-white uppercase font-sans">
-              Cine<span className="text-cineverse-red">verse</span>
+            <span className="w-1.5 h-5 bg-[#E60914] rounded-sm mr-2.5 inline-block" />
+            <span className="text-lg font-black tracking-wider text-[#F5F2F0] uppercase font-sans">
+              CINEVERSE
             </span>
           </button>
 
           {/* Navigation Links */}
-          <nav className="hidden md:flex items-center space-x-6 text-sm font-medium">
+          <nav className="hidden md:flex items-center space-x-8 text-sm font-medium">
             <button
               onClick={() => setActiveTab('home')}
-              className={`transition-colors hover:text-white ${
-                activeTab === 'home' ? 'text-white font-semibold' : 'text-neutral-400'
+              className={`transition-colors hover:text-[#F5F2F0] ${
+                activeTab === 'home' ? 'text-[#F5F2F0] font-semibold' : 'text-[#94969F]'
+              }`}
+            >
+              Home
+            </button>
+            <button
+              onClick={() => setActiveTab('discover')}
+              className={`transition-colors hover:text-[#F5F2F0] ${
+                activeTab === 'discover' ? 'text-[#F5F2F0] font-semibold' : 'text-[#94969F]'
               }`}
             >
               Discover
             </button>
             <button
               onClick={() => setActiveTab('foryou')}
-              className={`flex items-center space-x-1.5 transition-colors hover:text-white ${
-                activeTab === 'foryou' ? 'text-cineverse-red font-semibold' : 'text-neutral-400'
+              className={`transition-colors hover:text-[#F5F2F0] ${
+                activeTab === 'foryou' ? 'text-[#F5F2F0] font-semibold' : 'text-[#94969F]'
               }`}
             >
-              <Sparkles className="w-4 h-4 text-cineverse-red" />
-              <span>For You</span>
-              <span className="text-[10px] uppercase font-bold tracking-wider px-1.5 py-0.5 rounded-full bg-cineverse-red/20 text-cineverse-red border border-cineverse-red/40">
-                ML
-              </span>
+              For You
             </button>
             <button
               onClick={() => setActiveTab('watchlist')}
-              className={`flex items-center space-x-1.5 transition-colors hover:text-white ${
-                activeTab === 'watchlist' ? 'text-white font-semibold' : 'text-neutral-400'
+              className={`transition-colors hover:text-[#F5F2F0] ${
+                activeTab === 'watchlist' ? 'text-[#F5F2F0] font-semibold' : 'text-[#94969F]'
               }`}
             >
-              <Bookmark className="w-4 h-4" />
-              <span>Watchlist</span>
-              {watchlist.length > 0 && (
-                <span className="px-1.5 py-0.2 rounded-full text-xs bg-neutral-800 text-neutral-300 border border-neutral-700">
-                  {watchlist.length}
-                </span>
-              )}
+              Watchlist
             </button>
           </nav>
         </div>
 
-        {/* Right actions */}
-        <div className="flex items-center space-x-4">
-          <button
-            onClick={() => setActiveTab('search')}
-            className={`flex items-center space-x-2 px-3 py-1.5 rounded-full border text-sm transition-all ${
-              activeTab === 'search'
-                ? 'border-cineverse-red text-white bg-cineverse-red/10'
-                : 'border-neutral-800 text-neutral-300 hover:border-neutral-600 bg-neutral-900/60'
-            }`}
-          >
-            <Search className="w-4 h-4 text-neutral-400" />
-            <span className="hidden sm:inline">Search & Filters</span>
-          </button>
+        {/* Right Search Bar & User Profile */}
+        <div className="flex items-center space-x-5">
+          {/* Search Pill Input */}
+          <div className="relative flex items-center">
+            <Search className="absolute left-3.5 w-3.5 h-3.5 text-[#94969F] pointer-events-none" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              onFocus={() => {
+                if (activeTab !== 'discover') setActiveTab('discover');
+              }}
+              placeholder="Search titles, genres..."
+              className="bg-[#17181E] text-[#F5F2F0] placeholder-[#94969F] text-xs rounded-full pl-9 pr-4 py-2 w-44 sm:w-60 focus:outline-none focus:ring-1 focus:ring-[#E60914] transition-all"
+            />
+          </div>
+
+          {/* Profile Avatar */}
+          <div className="flex items-center space-x-2 cursor-pointer group">
+            <div className="w-7 h-7 rounded-full bg-[#5C040B] text-[#F5F2F0] flex items-center justify-center text-xs font-bold border border-[#6A0B14]">
+              S
+            </div>
+            <span className="hidden sm:inline text-xs text-[#94969F] group-hover:text-[#F5F2F0] transition-colors font-medium">
+              Profile
+            </span>
+          </div>
         </div>
       </div>
     </header>

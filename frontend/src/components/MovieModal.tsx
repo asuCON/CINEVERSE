@@ -83,12 +83,12 @@ export const MovieModal: React.FC<MovieModalProps> = ({ movie, onClose }) => {
                   </h2>
                   <div className="flex items-center space-x-3 text-sm text-neutral-300 mt-2 font-medium">
                     <span className="text-emerald-400 font-bold">
-                      {Math.round(movie.vote_average * 10)}% Match
+                      {Math.round((movie.vote_average ?? 8.0) * 10)}% Match
                     </span>
                     <span>{movie.release_year}</span>
                     <span className="flex items-center space-x-1 text-amber-400">
                       <Star className="w-4 h-4 fill-amber-400" />
-                      <span>{movie.vote_average.toFixed(1)} ({movie.vote_count.toLocaleString()} votes)</span>
+                      <span>{(movie.vote_average ?? 0).toFixed(1)} ({(movie.vote_count ?? 0).toLocaleString()} votes)</span>
                     </span>
                   </div>
                 </div>

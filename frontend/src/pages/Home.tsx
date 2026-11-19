@@ -1,119 +1,177 @@
 import React, { useEffect, useState } from 'react';
 import { HeroBanner } from '../components/HeroBanner';
-import { MovieRow } from '../components/MovieRow';
+import { MovieCard } from '../components/MovieCard';
 import { Movie, RecommendationItem } from '../types/movie';
 import { api } from '../services/api';
-import { Flame, Star, Compass, Sparkles } from 'lucide-react';
-import { useWatchlist } from '../context/WatchlistContext';
+import { PICKED_FOR_YOU_MOVIES, HERO_FEATURED_MOVIE, FigmaMovie } from '../data/figmaCatalog';
 
-export const Home: React.FC = () => {
-  const [featured, setFeatured] = useState<Movie | null>(null);
-  const [allMovies, setAllMovies] = useState<Movie[]>([]);
-  const [forYou, setForYou] = useState<RecommendationItem[]>([]);
-  const [loading, setLoading] = useState(true);
-  const { openMovieModal } = useWatchlist();
+interface HomeProps {
+  onSelectMovie: (movie: Movie | FigmaMovie) => void;
+  onWatchTrailer: (movie: Movie | FigmaMovie) => void;
+}
+
+export const Home: React.FC<HomeProps> = ({ onSelectMovie, onWatchTrailer }) => {
+  const [featured, setFeatured] = useState<Movie | FigmaMovie>(HERO_FEATURED_MOVIE);
+  const [movies, setMovies] = useState<Movie[]>([]);
+  const [recommendations, setRecommendations] = useState<RecommendationItem[]>([]);
 
   useEffect(() => {
-    async function loadCatalog() {
+    let isMounted = true;
+    async function loadData() {
       try {
-        setLoading(true);
-        const [featuredRes, moviesRes, forYouRes] = await Promise.all([
+        const [feat, moviesRes, recoRes] = await Promise.allSettled([
           api.getFeaturedMovie(),
-          api.getMovies({ limit: 50 }),
-          api.getForYou()
+          api.getMovies({ limit: 40 }),
+          api.getForYou('default_user', 6)
         ]);
-        setFeatured(featuredRes);
-        setAllMovies(moviesRes.items);
-        setForYou(forYouRes);
+
+        if (!isMounted) return;
+
+        if (feat.status === 'fulfilled' && feat.value) {
+          setFeatured(feat.value);
+        }
+        if (moviesRes.status === 'fulfilled' && moviesRes.value?.items?.length) {
+          setMovies(moviesRes.value.items);
+        }
+        if (recoRes.status === 'fulfilled' && recoRes.value?.length) {
+          setRecommendations(recoRes.value);
+        }
       } catch (err) {
-        console.error('Error loading home catalog:', err);
-      } finally {
-        setLoading(false);
+        console.error('Error loading TMDB catalog:', err);
       }
     }
-    loadCatalog();
+    loadData();
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-[#0B0B0B] flex items-center justify-center">
-        <div className="flex flex-col items-center space-y-4">
-          <div className="w-12 h-12 rounded-full border-4 border-cineverse-red border-t-transparent animate-spin" />
-          <span className="text-neutral-400 font-medium tracking-wide text-sm">
-            Connecting to Cineverse Recommendation Core...
-          </span>
-        </div>
-      </div>
-    );
-  }
+  // Display items
+  const pickedList =
+    recommendations.length > 0
+      ? recommendations.map((r) => ({
+          ...r.movie,
+          match_percentage: r.match_percentage,
+          badgeText: `${r.match_percentage}% Match`
+        }))
+      : movies.length > 0
+      ? movies.slice(0, 6)
+      : PICKED_FOR_YOU_MOVIES;
 
-  // Filter categorizations
-  const sciFiMovies = allMovies.filter(m => m.genres?.includes('Science Fiction'));
-  const dramaMovies = allMovies.filter(m => m.genres?.includes('Drama'));
-  const actionMovies = allMovies.filter(m => m.genres?.includes('Action') || m.genres?.includes('Thriller'));
+  const trendingList =
+    movies.length > 6
+      ? movies.slice(6, 18)
+      : PICKED_FOR_YOU_MOVIES;
+
+  const sciFiList = movies.filter(
+    (m) => m.genres?.some((g) => g.toLowerCase().includes('sci') || g.toLowerCase().includes('fantasy'))
+  );
+
+  const actionList = movies.filter(
+    (m) => m.genres?.some((g) => g.toLowerCase().includes('action') || g.toLowerCase().includes('thrill'))
+  );
 
   return (
-    <div className="min-h-screen bg-[#0B0B0B] pb-20">
-      {/* Cinematic Billboard */}
+    <div className="min-h-screen bg-[#07080B] text-[#F5F2F0] pb-24">
+      {/* Top Hero Banner */}
       <HeroBanner
         movie={featured}
-        onPlayTrailer={() => featured && openMovieModal(featured)}
+        onWatchTrailer={() => onWatchTrailer(featured)}
+        onDetails={() => onSelectMovie(featured)}
       />
 
-      {/* Rows Container */}
-      <div className="-mt-16 md:-mt-24 relative z-30 space-y-8">
-        {/* ML Personalized Row */}
-        {forYou.length > 0 && (
-          <MovieRow
-            title="Top Picks For You"
-            subtitle="Calculated in real-time by ML recommendation engine"
-            icon={<Sparkles className="w-5 h-5 text-cineverse-red" />}
-            items={forYou}
-          />
+      {/* Main Content Area matching Figma Desktop.png */}
+      <div className="max-w-7xl mx-auto px-6 md:px-12 space-y-12 mt-12">
+        {/* Section 1: Picked for you */}
+        <section className="space-y-4">
+          <div>
+            <h2 className="text-xl sm:text-2xl font-bold text-[#F5F2F0] tracking-tight">
+              Picked for you
+            </h2>
+            <p className="text-xs text-[#94969F] mt-0.5">
+              Recommendations shaped around your taste {recommendations.length > 0 ? '• ML Calibrated' : ''}
+            </p>
+          </div>
+
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
+            {pickedList.slice(0, 6).map((movie) => (
+              <MovieCard
+                key={movie.id}
+                item={movie}
+                onClick={() => onSelectMovie(movie as Movie)}
+              />
+            ))}
+          </div>
+        </section>
+
+        {/* Section 2: Trending now */}
+        <section className="space-y-4">
+          <div>
+            <h2 className="text-xl sm:text-2xl font-bold text-[#F5F2F0] tracking-tight">
+              Trending now
+            </h2>
+            <p className="text-xs text-[#94969F] mt-0.5">
+              Stories everyone's talking about on TMDB
+            </p>
+          </div>
+
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
+            {trendingList.slice(0, 6).map((movie) => (
+              <MovieCard
+                key={`trending-${movie.id}`}
+                item={movie}
+                onClick={() => onSelectMovie(movie as Movie)}
+              />
+            ))}
+          </div>
+        </section>
+
+        {/* Section 3: Sci-Fi & Cyberpunk Worlds (if catalog loaded) */}
+        {sciFiList.length > 0 && (
+          <section className="space-y-4">
+            <div>
+              <h2 className="text-xl sm:text-2xl font-bold text-[#F5F2F0] tracking-tight">
+                Sci-Fi & Cosmic Explorations
+              </h2>
+              <p className="text-xs text-[#94969F] mt-0.5">
+                Mind-bending futures, space voyages, and other dimensions
+              </p>
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
+              {sciFiList.slice(0, 6).map((movie) => (
+                <MovieCard
+                  key={`scifi-${movie.id}`}
+                  item={movie}
+                  onClick={() => onSelectMovie(movie)}
+                />
+              ))}
+            </div>
+          </section>
         )}
 
-        {/* Trending Now */}
-        <MovieRow
-          title="Trending Now"
-          subtitle="Most popular titles on Cineverse"
-          icon={<Flame className="w-5 h-5" />}
-          items={allMovies}
-        />
+        {/* Section 4: Action & Thrillers */}
+        {actionList.length > 0 && (
+          <section className="space-y-4">
+            <div>
+              <h2 className="text-xl sm:text-2xl font-bold text-[#F5F2F0] tracking-tight">
+                Action & High-Stakes Thrillers
+              </h2>
+              <p className="text-xs text-[#94969F] mt-0.5">
+                Edge of your seat blockbusters and crime sagas
+              </p>
+            </div>
 
-        {/* Sci-Fi & Cyberpunk */}
-        {sciFiMovies.length > 0 && (
-          <MovieRow
-            title="Sci-Fi & Cyberpunk Worlds"
-            subtitle="Mind-bending realities, space exploration & future noir"
-            icon={<Compass className="w-5 h-5" />}
-            items={sciFiMovies}
-          />
-        )}
-
-        {/* Critically Acclaimed */}
-        <MovieRow
-          title="Critically Acclaimed & Top Rated"
-          subtitle="Highest voter consensus (8.0+ rating)"
-          icon={<Star className="w-5 h-5 text-amber-400" />}
-          items={[...allMovies].sort((a, b) => b.vote_average - a.vote_average)}
-        />
-
-        {/* Action & Thrillers */}
-        {actionMovies.length > 0 && (
-          <MovieRow
-            title="Action & Heart-Pounding Thrillers"
-            subtitle="Adrenaline, heists, and crime epics"
-            items={actionMovies}
-          />
-        )}
-
-        {/* Compelling Dramas */}
-        {dramaMovies.length > 0 && (
-          <MovieRow
-            title="Deep Dramas & Human Stories"
-            subtitle="Masterclass performances and character arcs"
-            items={dramaMovies}
-          />
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
+              {actionList.slice(0, 6).map((movie) => (
+                <MovieCard
+                  key={`action-${movie.id}`}
+                  item={movie}
+                  onClick={() => onSelectMovie(movie)}
+                />
+              ))}
+            </div>
+          </section>
         )}
       </div>
     </div>

@@ -20,7 +20,7 @@ export const api = {
     if (params?.limit) query.append('limit', params.limit.toString());
     if (params?.skip) query.append('skip', params.skip.toString());
 
-    const res = await fetch(`${API_BASE_URL}/movies?${query.toString()}`);
+    const res = await fetch(`${API_BASE_URL}/movies/?${query.toString()}`);
     if (!res.ok) throw new Error('Failed to fetch movies');
     return res.json();
   },

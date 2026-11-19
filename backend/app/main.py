@@ -1,5 +1,15 @@
 import os
+import sys
 import json
+
+# Ensure UTF-8 output on Windows terminals
+if sys.platform == "win32":
+    try:
+        sys.stdout.reconfigure(encoding='utf-8')
+        sys.stderr.reconfigure(encoding='utf-8')
+    except Exception:
+        pass
+
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -42,7 +52,40 @@ def seed_database_and_train_recommender():
                         )
                         db.add(movie)
                     db.commit()
-                    print(f"✅ Loaded {len(movies_data)} seed movies into the database.")
+                    print(f"[SUCCESS] Loaded {len(movies_data)} seed movies into the database.")
+
+        # If TMDB API key is available, enrich and expand catalog with live trending & popular movies
+        from app.services.tmdb import tmdb_service
+        if tmdb_service.is_configured():
+            current_count = db.query(Movie).count()
+            if current_count < 30:
+                print("[TMDB] Syncing live blockbuster catalog from TMDB API...")
+                tmdb_movies = tmdb_service.fetch_curated_catalog(limit=40)
+                existing_tmdb_ids = {m[0] for m in db.query(Movie.tmdb_id).all() if m[0] is not None}
+                for item in tmdb_movies:
+                    if item["tmdb_id"] not in existing_tmdb_ids:
+                        new_m = Movie(
+                            tmdb_id=item["tmdb_id"],
+                            title=item["title"],
+                            original_title=item.get("original_title"),
+                            overview=item.get("overview"),
+                            poster_path=item.get("poster_path"),
+                            backdrop_path=item.get("backdrop_path"),
+                            release_date=item.get("release_date"),
+                            release_year=item.get("release_year"),
+                            vote_average=item.get("vote_average", 0.0),
+                            vote_count=item.get("vote_count", 0),
+                            popularity=item.get("popularity", 0.0),
+                            genres=item.get("genres", []),
+                            director=item.get("director"),
+                            cast=item.get("cast", []),
+                            keywords=item.get("keywords", []),
+                            trailer_youtube_key=item.get("trailer_youtube_key")
+                        )
+                        db.add(new_m)
+                        existing_tmdb_ids.add(item["tmdb_id"])
+                db.commit()
+                print(f"[SUCCESS] TMDB catalog sync completed. Total movies: {db.query(Movie).count()}")
 
         # Train / fit the recommender model
         all_movies = db.query(Movie).all()
@@ -62,9 +105,9 @@ def seed_database_and_train_recommender():
                 for m in all_movies
             ]
             recommender.fit(movie_records)
-            print(f"🤖 ML Recommender trained successfully on {len(movie_records)} titles.")
+            print(f"[ML] Recommender trained successfully on {len(movie_records)} titles.")
     except Exception as e:
-        print(f"⚠️ Error during startup database seed or ML model fitting: {e}")
+        print(f"[WARNING] Error during startup database seed or ML model fitting: {e}")
     finally:
         db.close()
 

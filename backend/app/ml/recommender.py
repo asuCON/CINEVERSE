@@ -99,10 +99,13 @@ class MovieRecommender:
         results = []
         for sim_idx, score in sim_scores:
             m_id = self.idx_to_movie_id[sim_idx]
+            raw_score = float(score)
+            # Map sparse TF-IDF cosine score to 65% - 98% Netflix match scale
+            calibrated_match = min(98, max(65, int(65 + (raw_score / 0.08) * 30)))
             results.append({
                 "movie_id": m_id,
-                "similarity_score": round(float(score), 4),
-                "match_percentage": int(round(float(score) * 100))
+                "similarity_score": round(raw_score, 4),
+                "match_percentage": calibrated_match
             })
         return results
 

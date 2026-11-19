@@ -1,109 +1,97 @@
 import React from 'react';
-import { Plus, Check, Info, Star } from 'lucide-react';
+import { Star } from 'lucide-react';
+import { CineArt, ArtTheme } from './CineArt';
 import { Movie } from '../types/movie';
-import { useWatchlist } from '../context/WatchlistContext';
-import { StarRating } from './StarRating';
 
-interface MovieCardProps {
-  movie: Movie;
-  matchPercentage?: number;
+export interface CardItem {
+  id: string | number;
+  title: string;
+  genre?: string;
+  genres?: string[];
+  year?: number | string;
+  release_year?: number;
+  theme?: ArtTheme | string;
+  posterUrl?: string;
+  poster_path?: string;
+  backdrop_path?: string;
+  tagline?: string;
+  vote_average?: number;
+  match_percentage?: number;
   badgeText?: string;
 }
 
+interface MovieCardProps {
+  item?: CardItem | Movie;
+  movie?: Movie;
+  matchPercentage?: number;
+  badgeText?: string;
+  onClick?: () => void;
+}
+
 export const MovieCard: React.FC<MovieCardProps> = ({
+  item: rawItem,
   movie,
   matchPercentage,
-  badgeText
+  badgeText,
+  onClick
 }) => {
-  const { isInWatchlist, toggleWatchlist, openMovieModal, ratings, rateMovie } = useWatchlist();
-  const inList = isInWatchlist(movie.id);
-  const userRating = ratings[movie.id] || 0;
+  const item = rawItem || movie;
+  if (!item) return null;
+  const title = item.title;
+  const genre =
+    item.genre ||
+    (Array.isArray(item.genres) && item.genres.length > 0
+      ? item.genres.slice(0, 2).join(' / ')
+      : 'Cinema');
+
+  const year = item.year || item.release_year;
+  const posterUrl = item.backdrop_path || item.poster_path || item.posterUrl;
+  const rating = item.vote_average;
+  const match = matchPercentage || item.match_percentage;
+  const badge = badgeText || item.badgeText;
 
   return (
     <div
-      onClick={() => openMovieModal(movie)}
-      className="group relative flex-none w-[170px] sm:w-[210px] md:w-[240px] cursor-pointer rounded-lg overflow-hidden bg-cineverse-card transition-all duration-300 transform hover:-translate-y-2 hover:scale-[1.03] hover:shadow-2xl hover:shadow-black/80 border border-neutral-800/50 hover:border-neutral-700"
+      onClick={onClick}
+      className="group cursor-pointer select-none flex-none w-full transition-transform duration-200 hover:-translate-y-1.5"
     >
-      {/* Poster Image */}
-      <div className="relative aspect-[2/3] w-full overflow-hidden bg-neutral-900">
-        <img
-          src={movie.poster_path}
-          alt={movie.title}
-          loading="lazy"
-          className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-          onError={(e) => {
-            // Fallback placeholder if image fails
-            (e.target as HTMLImageElement).src =
-              'https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?w=500&auto=format&fit=crop&q=60';
-          }}
+      {/* 16:10 Landscape Graphic Artwork or TMDB Backdrop/Poster */}
+      <div className="relative aspect-[16/10] w-full rounded-card overflow-hidden shadow-lg border border-[#17181E] group-hover:border-[#2C2F3C] transition-colors bg-[#101116]">
+        <CineArt
+          theme={item.theme || 'crimson'}
+          posterUrl={posterUrl}
+          altText={title}
         />
 
-        {/* Gradient Overlay */}
-        <div className="absolute inset-0 bg-gradient-to-t from-black via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+        {/* Rating or Match Badge */}
+        <div className="absolute top-2 right-2 z-10 flex items-center space-x-1 px-1.5 py-0.5 rounded-full bg-[#07080B]/80 border border-[#232630] text-[11px] font-semibold text-[#F5F2F0] backdrop-blur-sm">
+          {match ? (
+            <span className="text-emerald-400 font-bold">{match}% Match</span>
+          ) : rating && rating > 0 ? (
+            <>
+              <Star className="w-3 h-3 fill-[#F5B048] text-[#F5B048]" />
+              <span>{rating.toFixed(1)}</span>
+            </>
+          ) : null}
+        </div>
 
-        {/* Match Percentage or Custom Badge */}
-        {(matchPercentage || badgeText) && (
-          <div className="absolute top-2 left-2 z-10 flex items-center space-x-1 px-2 py-0.5 rounded bg-emerald-950/90 border border-emerald-500/40 text-emerald-400 text-xs font-semibold shadow-md backdrop-blur-sm">
-            <span>{badgeText || `${matchPercentage}% Match`}</span>
+        {badge && (
+          <div className="absolute top-2 left-2 z-10 px-2 py-0.5 rounded-full bg-[#E60914]/90 text-[10px] font-bold text-white uppercase tracking-wider shadow">
+            {badge}
           </div>
         )}
-
-        {/* TMDB Rating Badge */}
-        <div className="absolute top-2 right-2 z-10 flex items-center space-x-1 px-1.5 py-0.5 rounded bg-black/75 border border-white/10 text-amber-400 text-xs font-medium backdrop-blur-sm">
-          <Star className="w-3 h-3 fill-amber-400 text-amber-400" />
-          <span>{movie.vote_average.toFixed(1)}</span>
-        </div>
-
-        {/* Hover Quick Action Buttons */}
-        <div className="absolute bottom-3 left-3 right-3 flex items-center justify-between opacity-0 group-hover:opacity-100 transition-all duration-200 transform translate-y-2 group-hover:translate-y-0">
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              toggleWatchlist(movie);
-            }}
-            className={`p-2 rounded-full border transition-all ${
-              inList
-                ? 'bg-cineverse-red border-cineverse-red text-white'
-                : 'bg-black/80 border-white/30 text-white hover:border-white hover:scale-110'
-            }`}
-            title={inList ? 'Remove from Watchlist' : 'Add to Watchlist'}
-          >
-            {inList ? <Check className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
-          </button>
-
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              openMovieModal(movie);
-            }}
-            className="p-2 rounded-full bg-black/80 border border-white/30 text-white hover:border-white hover:scale-110 transition-all"
-            title="More Information"
-          >
-            <Info className="w-4 h-4" />
-          </button>
-        </div>
       </div>
 
-      {/* Content Meta */}
-      <div className="p-3">
-        <h4 className="text-sm font-semibold text-neutral-100 truncate group-hover:text-cineverse-red transition-colors">
-          {movie.title}
-        </h4>
-        <div className="flex items-center justify-between text-xs text-neutral-400 mt-1">
-          <span>{movie.release_year}</span>
-          <span className="truncate max-w-[120px] text-right">
-            {movie.genres?.slice(0, 2).join(' • ')}
-          </span>
+      {/* Meta underneath matching Figma */}
+      <div className="mt-2.5 space-y-0.5">
+        <div className="text-[10px] uppercase font-bold tracking-wider text-[#94969F]">
+          Cineverse Original
         </div>
-
-        {/* User Rating status */}
-        <div className="mt-2.5 pt-2 border-t border-neutral-800/80 flex items-center justify-between">
-          <span className="text-[11px] text-neutral-500 font-medium">Your rating:</span>
-          <StarRating
-            size="sm"
-            initialRating={userRating}
-            onRate={(score) => rateMovie(movie.id, score)}
-          />
+        <h4 className="text-sm font-bold uppercase tracking-wide text-[#F5F2F0] truncate group-hover:text-[#E60914] transition-colors">
+          {title}
+        </h4>
+        <div className="text-xs text-[#94969F] truncate">
+          {genre} {year ? `• ${year}` : ''}
         </div>
       </div>
     </div>

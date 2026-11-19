@@ -1,134 +1,195 @@
-import React, { useEffect, useState } from 'react';
-import { Sparkles, RefreshCw, Star, Info, Bookmark, ThumbsUp } from 'lucide-react';
-import { RecommendationItem } from '../types/movie';
-import { api } from '../services/api';
-import { useWatchlist } from '../context/WatchlistContext';
+import React, { useState, useEffect } from 'react';
+import { Sparkles, Moon, Zap, Heart, RefreshCw } from 'lucide-react';
 import { MovieCard } from '../components/MovieCard';
+import { Movie, RecommendationItem } from '../types/movie';
+import { api } from '../services/api';
+import { PICKED_FOR_YOU_MOVIES, FigmaMovie } from '../data/figmaCatalog';
 
-export const ForYou: React.FC = () => {
+interface ForYouProps {
+  onSelectMovie: (movie: Movie | FigmaMovie) => void;
+}
+
+export const ForYou: React.FC<ForYouProps> = ({ onSelectMovie }) => {
+  const [activeMood, setActiveMood] = useState<'mindBlown' | 'cozy' | 'edgeOfSeat' | 'bigFeelings'>('mindBlown');
   const [recommendations, setRecommendations] = useState<RecommendationItem[]>([]);
-  const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const { ratings, watchlist } = useWatchlist();
 
-  const ratedCount = Object.keys(ratings).length;
-  const watchlistCount = watchlist.length;
+  const tasteTags = ['Mind-bending', 'Atmospheric', 'Unexpected endings', 'Character-driven'];
 
   const fetchRecommendations = async () => {
     try {
       setRefreshing(true);
-      const data = await api.getForYou('default_user', 18);
-      setRecommendations(data);
+      const res = await api.getForYou('default_user', 18);
+      setRecommendations(res || []);
     } catch (err) {
-      console.error('Failed to fetch recommendations:', err);
+      console.error('Error fetching ML recommendations:', err);
     } finally {
       setRefreshing(false);
-      setLoading(false);
     }
   };
 
   useEffect(() => {
     fetchRecommendations();
-  }, [ratedCount, watchlistCount]);
+  }, []);
+
+  // Filter recommendations based on active mood
+  const filteredRecommendations = recommendations.filter((item) => {
+    const genres = (item.movie.genres || []).map((g) => g.toLowerCase());
+    if (activeMood === 'mindBlown') {
+      return genres.some((g) => g.includes('sci') || g.includes('myster') || g.includes('fantasy'));
+    }
+    if (activeMood === 'cozy') {
+      return genres.some((g) => g.includes('anim') || g.includes('drama') || g.includes('family'));
+    }
+    if (activeMood === 'edgeOfSeat') {
+      return genres.some((g) => g.includes('action') || g.includes('thrill') || g.includes('crime'));
+    }
+    if (activeMood === 'bigFeelings') {
+      return genres.some((g) => g.includes('drama') || g.includes('hist') || g.includes('music'));
+    }
+    return true;
+  });
+
+  const displayList =
+    filteredRecommendations.length > 0
+      ? filteredRecommendations.map((r) => ({
+          ...r.movie,
+          match_percentage: r.match_percentage,
+          badgeText: `${r.match_percentage}% Match`
+        }))
+      : recommendations.length > 0
+      ? recommendations.map((r) => ({
+          ...r.movie,
+          match_percentage: r.match_percentage,
+          badgeText: `${r.match_percentage}% Match`
+        }))
+      : PICKED_FOR_YOU_MOVIES;
 
   return (
-    <div className="min-h-screen bg-[#0B0B0B] text-white pt-24 px-4 md:px-12 pb-24">
-      <div className="max-w-7xl mx-auto space-y-8">
-        {/* ML Feature Header */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 pb-6 border-b border-neutral-800">
-          <div>
-            <div className="flex items-center space-x-2 text-cineverse-red mb-2">
-              <Sparkles className="w-6 h-6 animate-pulse" />
-              <span className="text-xs uppercase font-extrabold tracking-widest bg-cineverse-red/20 px-2 py-0.5 rounded border border-cineverse-red/40">
-                Machine Learning Recommendation Engine
-              </span>
-            </div>
-            <h1 className="text-3xl sm:text-4xl font-black uppercase tracking-tight">
-              Curated For You
+    <div className="min-h-screen bg-[#07080B] text-[#F5F2F0] pt-12 pb-24 px-6 md:px-12">
+      <div className="max-w-7xl mx-auto space-y-12">
+        {/* Main Heading */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="space-y-2">
+            <h1 className="text-3xl sm:text-4xl font-bold text-[#F5F2F0] tracking-tight">
+              Your taste. Your universe.
             </h1>
-            <p className="text-neutral-400 text-sm sm:text-base mt-1 max-w-2xl">
-              Cineverse analyzes the synopsis, genres, directors, and actors of the films you save and rate, weighting your preference profile using TF-IDF feature vectors and Cosine Similarity.
+            <p className="text-sm text-[#94969F]">
+              Cineverse learns from what you love — and helps you find what you didn’t know you needed.
             </p>
           </div>
 
-          <div className="flex items-center space-x-4">
-            <button
-              onClick={fetchRecommendations}
-              disabled={refreshing}
-              className="flex items-center space-x-2 px-4 py-2.5 rounded-lg bg-cineverse-card border border-neutral-700 hover:border-cineverse-red text-neutral-200 hover:text-white transition-all text-sm font-semibold disabled:opacity-50"
+          <button
+            onClick={fetchRecommendations}
+            disabled={refreshing}
+            className="flex items-center space-x-2 px-4 py-2 rounded-full bg-[#17181E] hover:bg-[#242834] text-xs font-semibold text-[#F5F2F0] border border-[#232630] transition-colors self-start sm:self-auto"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${refreshing ? 'animate-spin text-[#E60914]' : ''}`} />
+            <span>Recalculate Taste</span>
+          </button>
+        </div>
+
+        {/* YOUR TASTE PROFILE Card matching Recommendations.png */}
+        <div className="bg-[#101116] border border-[#17181E] rounded-2xl p-6 sm:p-8 space-y-5">
+          <div className="text-[11px] uppercase font-bold tracking-wider text-[#E60914]">
+            YOUR TASTE PROFILE
+          </div>
+
+          <h2 className="text-lg sm:text-xl md:text-2xl font-bold text-[#F5F2F0] leading-snug max-w-3xl">
+            You gravitate toward smart sci-fi, atmospheric mysteries, and stories with a twist.
+          </h2>
+
+          <div className="flex flex-wrap gap-2.5 pt-1">
+            {tasteTags.map((tag) => (
+              <span
+                key={tag}
+                className="px-4 py-2 rounded-full text-xs font-medium bg-[#17181E] text-[#94969F] border border-[#232630]"
+              >
+                {tag}
+              </span>
+            ))}
+          </div>
+        </div>
+
+        {/* Made for your mood section */}
+        <div className="space-y-4">
+          <div>
+            <h3 className="text-xl font-bold text-[#F5F2F0]">Made for your mood</h3>
+            <p className="text-xs text-[#94969F]">Choose a mood to tune your recommendations</p>
+          </div>
+
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+            {/* Card 1: Mind blown */}
+            <div
+              onClick={() => setActiveMood('mindBlown')}
+              className={`p-6 rounded-card transition-all cursor-pointer space-y-3 ${
+                activeMood === 'mindBlown'
+                  ? 'bg-[#3E2B58] border border-[#5A3F7E] text-white shadow-lg'
+                  : 'bg-[#1A1F26] border border-[#262C36] text-[#94969F] hover:text-white'
+              }`}
             >
-              <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin text-cineverse-red' : ''}`} />
-              <span>{refreshing ? 'Recalculating...' : 'Refresh ML Feed'}</span>
-            </button>
+              <Sparkles className="w-5 h-5 text-[#F5B048]" />
+              <div className="font-bold text-sm text-[#F5F2F0]">Mind blown</div>
+            </div>
+
+            {/* Card 2: Cozy night */}
+            <div
+              onClick={() => setActiveMood('cozy')}
+              className={`p-6 rounded-card transition-all cursor-pointer space-y-3 ${
+                activeMood === 'cozy'
+                  ? 'bg-[#3E2B58] border border-[#5A3F7E] text-white shadow-lg'
+                  : 'bg-[#1A1F26] border border-[#262C36] text-[#94969F] hover:text-white'
+              }`}
+            >
+              <Moon className="w-5 h-5" />
+              <div className="font-bold text-sm text-[#F5F2F0]">Cozy night</div>
+            </div>
+
+            {/* Card 3: Edge of seat */}
+            <div
+              onClick={() => setActiveMood('edgeOfSeat')}
+              className={`p-6 rounded-card transition-all cursor-pointer space-y-3 ${
+                activeMood === 'edgeOfSeat'
+                  ? 'bg-[#70121D] border border-[#8C1625] text-white shadow-lg'
+                  : 'bg-[#1A1F26] border border-[#262C36] text-[#94969F] hover:text-white'
+              }`}
+            >
+              <Zap className="w-5 h-5 text-[#F5B048]" />
+              <div className="font-bold text-sm text-[#F5F2F0]">Edge of seat</div>
+            </div>
+
+            {/* Card 4: Big feelings */}
+            <div
+              onClick={() => setActiveMood('bigFeelings')}
+              className={`p-6 rounded-card transition-all cursor-pointer space-y-3 ${
+                activeMood === 'bigFeelings'
+                  ? 'bg-[#70121D] border border-[#8C1625] text-white shadow-lg'
+                  : 'bg-[#1A1F26] border border-[#262C36] text-[#94969F] hover:text-white'
+              }`}
+            >
+              <Heart className="w-5 h-5 text-[#E60914]" />
+              <div className="font-bold text-sm text-[#F5F2F0]">Big feelings</div>
+            </div>
           </div>
         </div>
 
-        {/* User Interaction Metrics Strip */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <div className="p-4 rounded-xl bg-cineverse-card/60 border border-neutral-800/80 flex items-center space-x-4">
-            <div className="w-10 h-10 rounded-lg bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400">
-              <Star className="w-5 h-5 fill-amber-400/30" />
-            </div>
-            <div>
-              <div className="text-2xl font-black">{ratedCount}</div>
-              <div className="text-xs text-neutral-400">Movies Rated by You</div>
-            </div>
+        {/* Recommended for you Section */}
+        <div className="space-y-4">
+          <div>
+            <h3 className="text-xl font-bold text-[#F5F2F0]">Recommended for you</h3>
+            <p className="text-xs text-[#94969F]">Ranked by similarity to your preferences</p>
           </div>
 
-          <div className="p-4 rounded-xl bg-cineverse-card/60 border border-neutral-800/80 flex items-center space-x-4">
-            <div className="w-10 h-10 rounded-lg bg-cineverse-red/10 border border-cineverse-red/30 flex items-center justify-center text-cineverse-red">
-              <Bookmark className="w-5 h-5" />
-            </div>
-            <div>
-              <div className="text-2xl font-black">{watchlistCount}</div>
-              <div className="text-xs text-neutral-400">Titles in Watchlist</div>
-            </div>
-          </div>
-
-          <div className="p-4 rounded-xl bg-cineverse-card/60 border border-neutral-800/80 flex items-center space-x-4">
-            <div className="w-10 h-10 rounded-lg bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
-              <ThumbsUp className="w-5 h-5" />
-            </div>
-            <div>
-              <div className="text-2xl font-black">{recommendations.length}</div>
-              <div className="text-xs text-neutral-400">Personalized Matches Generated</div>
-            </div>
-          </div>
-        </div>
-
-        {/* Explainability Callout */}
-        {ratedCount === 0 && watchlistCount === 0 && (
-          <div className="flex items-start space-x-3 p-4 rounded-lg bg-neutral-900/80 border border-neutral-800 text-sm text-neutral-300">
-            <Info className="w-5 h-5 text-cineverse-red flex-none mt-0.5" />
-            <div>
-              <strong className="text-white block mb-0.5">Cold Start Mode:</strong>
-              Rate a few films or add titles like <span className="text-cineverse-red font-semibold">Interstellar</span> or <span className="text-cineverse-red font-semibold">Inception</span> to your watchlist to teach Cineverse your cinematic taste!
-            </div>
-          </div>
-        )}
-
-        {/* Recommendations Grid */}
-        {loading ? (
-          <div className="text-center py-20 text-neutral-500">
-            <div className="w-8 h-8 border-2 border-cineverse-red border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-            Computing personalized recommendations...
-          </div>
-        ) : recommendations.length === 0 ? (
-          <div className="text-center py-20 text-neutral-500">
-            No recommendations found. Rate a few movies on Discover to start!
-          </div>
-        ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
-            {recommendations.map((item, idx) => (
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
+            {displayList.slice(0, 12).map((movie) => (
               <MovieCard
-                key={`${item.movie.id}-${idx}`}
-                movie={item.movie}
-                matchPercentage={item.match_percentage}
-                badgeText={item.reason}
+                key={movie.id}
+                item={movie}
+                onClick={() => onSelectMovie(movie as Movie)}
               />
             ))}
           </div>
-        )}
+        </div>
       </div>
     </div>
   );
