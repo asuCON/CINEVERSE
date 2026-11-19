@@ -14,8 +14,8 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  backend-test:
-    name: Backend Tests & Lint
+  backend:
+    name: Backend - Install Dependencies & Run Tests
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -37,11 +37,11 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Python syntax and compile check
+      - name: Syntax check
         run: |
           python -m compileall app/
 
-      - name: Run backend tests
+      - name: Run tests
         env:
           DATABASE_URL: sqlite:///./test_cineverse.db
           DEBUG: "True"
@@ -49,8 +49,8 @@ jobs:
         run: |
           PYTHONPATH=. pytest -v
 
-  frontend-build:
-    name: Frontend Build & Typecheck
+  frontend:
+    name: Frontend - Install Dependencies & Run Tests
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -70,5 +70,8 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Type check and production build
+      - name: Run tests
+        run: npm test
+
+      - name: Build frontend
         run: npm run build
