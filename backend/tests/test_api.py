@@ -39,3 +39,8 @@ def test_for_you_recommendations(client):
     assert response.status_code == 200
     data = response.json()
     assert isinstance(data, list)
+
+def test_deliberate_failure():
+    # Intentionally broken: expects 2 but the function returns 3
+    result = 1 + 2
+    assert result == 2, f"Expected 2 but got {result}"
